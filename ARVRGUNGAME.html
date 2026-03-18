@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+	<title></title>
+	<meta name="generator" content="LibreOffice 25.8.4.2 (Linux)"/>
+	<meta name="created" content="00:00:00"/>
+	<meta name="changed" content="00:00:00"/>
+	<style type="text/css">
+		@page { size: 8.27in 11.69in; margin: 0.79in }
+		p { margin-bottom: 0.1in; line-height: 115%; background: transparent }
+		pre { font-size: 10pt; font-family: "Liberation Mono", monospace; background: transparent }
+	</style>
+</head>
+<body lang="en-US" link="#000080" vlink="#800000" dir="ltr"><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no&quot;&gt;
+    &lt;title&gt;AR Neon Blaster&lt;/title&gt;
+    &lt;!-- Tailwind CSS for UI styling --&gt;
+    &lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;&lt;/script&gt;
+    &lt;!-- Three.js for 3D rendering --&gt;
+    &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js&quot;&gt;&lt;/script&gt;
+    &lt;!-- MediaPipe Hands &amp; Camera Utils --&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js&quot; crossorigin=&quot;anonymous&quot;&gt;&lt;/script&gt;
+
+    &lt;style&gt;
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        /* The video feed is mirrored and placed behind the canvas */
+        #webcam-video {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            transform: scaleX(-1);
+            z-index: 1;
+            /* opacity: 0; REMOVED: Browsers throttle invisible videos, breaking tracking */
+        }
+        /* ThreeJS Canvas */
+        #game-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 2;
+            pointer-events: none; /* Let clicks pass through if needed, though UI is above */
+        }
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 10;
+            pointer-events: none; /* Only allow clicks on specific buttons */
+        }
+        .interactive { pointer-events: auto; }
+        
+        /* Neon text effects */
+        .neon-text {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #0ff;
+        }
+        .neon-text-red {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #f0f, 0 0 40px #f0f, 0 0 80px #f0f;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+    &lt;!-- Camera Feed --&gt;
+    &lt;video id=&quot;webcam-video&quot; autoplay playsinline&gt;&lt;/video&gt;
+    
+    &lt;!-- 3D Environment --&gt;
+    &lt;canvas id=&quot;game-canvas&quot;&gt;&lt;/canvas&gt;
+
+    &lt;!-- UI Overlays --&gt;
+    &lt;div id=&quot;ui-layer&quot; class=&quot;flex flex-col justify-between p-4&quot;&gt;
+        
+        &lt;!-- Loading Screen --&gt;
+        &lt;div id=&quot;loading-screen&quot; class=&quot;absolute inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center interactive z-50&quot;&gt;
+            &lt;h1 class=&quot;text-4xl text-cyan-400 font-bold mb-4 neon-text animate-pulse&quot;&gt;INITIALIZING AR...&lt;/h1&gt;
+            &lt;p class=&quot;text-white text-lg&quot;&gt;Loading AI Hand Tracking Models&lt;/p&gt;
+            &lt;p class=&quot;text-gray-400 text-sm mt-2&quot;&gt;Please allow camera permissions.&lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;!-- Start Screen --&gt;
+        &lt;div id=&quot;start-screen&quot; class=&quot;absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center interactive z-40 hidden&quot;&gt;
+            &lt;h1 class=&quot;text-6xl text-cyan-400 font-bold mb-2 neon-text&quot;&gt;NEON BLASTER AR&lt;/h1&gt;
+            &lt;p class=&quot;text-white text-xl mb-8&quot;&gt;Pinch Index &amp; Thumb to Shoot!&lt;/p&gt;
+            &lt;div class=&quot;flex space-x-8 mb-8&quot;&gt;
+                &lt;div class=&quot;text-center&quot;&gt;
+                    &lt;div class=&quot;w-16 h-16 border-4 border-cyan-400 rounded-full flex items-center justify-center mb-2 mx-auto shadow-[0_0_15px_#0ff]&quot;&gt;🖐️&lt;/div&gt;
+                    &lt;p class=&quot;text-cyan-400&quot;&gt;Left Hand&lt;br&gt;Left Lane&lt;/p&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;text-center&quot;&gt;
+                    &lt;div class=&quot;w-16 h-16 border-4 border-fuchsia-400 rounded-full flex items-center justify-center mb-2 mx-auto shadow-[0_0_15px_#f0f]&quot;&gt;🖐️&lt;/div&gt;
+                    &lt;p class=&quot;text-fuchsia-400&quot;&gt;Right Hand&lt;br&gt;Right Lane&lt;/p&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;button id=&quot;btn-start&quot; class=&quot;px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-2xl shadow-[0_0_20px_#0ff] transition-all transform hover:scale-105&quot;&gt;
+                START CALIBRATION &amp; PLAY
+            &lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;!-- HUD (Heads Up Display) --&gt;
+        &lt;div id=&quot;hud&quot; class=&quot;w-full flex justify-between items-start hidden&quot;&gt;
+            &lt;div class=&quot;bg-black bg-opacity-50 border border-cyan-500 p-4 rounded-lg shadow-[0_0_10px_#0ff]&quot;&gt;
+                &lt;h2 class=&quot;text-cyan-400 text-xl font-bold&quot;&gt;SCORE: &lt;span id=&quot;score-display&quot;&gt;0&lt;/span&gt;&lt;/h2&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;bg-black bg-opacity-50 border border-red-500 p-4 rounded-lg shadow-[0_0_10px_#f00]&quot;&gt;
+                &lt;h2 class=&quot;text-red-400 text-xl font-bold&quot;&gt;MISSES: &lt;span id=&quot;miss-display&quot;&gt;0&lt;/span&gt; / 5&lt;/h2&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;!-- Game Over Screen --&gt;
+        &lt;div id=&quot;game-over-screen&quot; class=&quot;absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center interactive z-40 hidden&quot;&gt;
+            &lt;h1 class=&quot;text-7xl text-red-500 font-bold mb-4 neon-text-red&quot;&gt;GAME OVER&lt;/h1&gt;
+            &lt;p class=&quot;text-white text-3xl mb-8&quot;&gt;Final Score: &lt;span id=&quot;final-score&quot; class=&quot;text-cyan-400 font-bold&quot;&gt;0&lt;/span&gt;&lt;/p&gt;
+            
+            &lt;div class=&quot;flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6&quot;&gt;
+                &lt;button id=&quot;btn-retry&quot; class=&quot;px-8 py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg text-xl shadow-[0_0_20px_#0ff] transition-all transform hover:scale-105&quot;&gt;
+                    RETRY
+                &lt;/button&gt;
+                &lt;button id=&quot;btn-end&quot; class=&quot;px-8 py-4 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg text-xl shadow-[0_0_15px_#fff] transition-all transform hover:scale-105&quot;&gt;
+                    END SESSION
+                &lt;/button&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;!-- Session Ended Screen --&gt;
+        &lt;div id=&quot;session-ended-screen&quot; class=&quot;absolute inset-0 bg-transparent flex flex-col items-center justify-end pb-20 interactive z-30 hidden&quot;&gt;
+            &lt;h2 class=&quot;text-white bg-black bg-opacity-50 px-4 py-2 rounded text-2xl mb-4&quot;&gt;Viewfinder Mode&lt;/h2&gt;
+            &lt;button id=&quot;btn-restart-app&quot; class=&quot;px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-[0_0_15px_#0ff]&quot;&gt;
+                BACK TO MENU
+            &lt;/button&gt;
+        &lt;/div&gt;
+
+    &lt;/div&gt;
+
+    &lt;script&gt;
+        // --- GAME STATE &amp; VARIABLES ---
+        let gameState = 'loading'; // loading, start, playing, gameover, ended
+        let score = 0;
+        let misses = 0;
+        const MAX_MISSES = 5;
+
+        // Audio Context for Procedural Sounds
+        let audioCtx;
+
+        // DOM Elements
+        const uiLoading = document.getElementById('loading-screen');
+        const uiStart = document.getElementById('start-screen');
+        const uiHUD = document.getElementById('hud');
+        const uiGameOver = document.getElementById('game-over-screen');
+        const uiSessionEnded = document.getElementById('session-ended-screen');
+        const scoreDisplay = document.getElementById('score-display');
+        const missDisplay = document.getElementById('miss-display');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const videoElement = document.getElementById('webcam-video');
+        const canvasElement = document.getElementById('game-canvas');
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        // Make the background purely black so it hides the real camera feed behind it
+        scene.background = new THREE.Color(0x000000);
+        
+        // Camera setup - looking down the negative Z axis
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 5);
+
+        // Remove alpha: true so the canvas acts as a solid black wall over the video
+        const renderer = new THREE.WebGLRenderer({ canvas: canvasElement, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(0, 10, 5);
+        scene.add(dirLight);
+
+        // Endless Path (Moving Grid)
+        const gridHelper = new THREE.GridHelper(40, 40, 0x00ffff, 0x004444);
+        gridHelper.position.y = -1;
+        scene.add(gridHelper);
+
+        // VR Environment Stars/Space Dust
+        const starsGeo = new THREE.BufferGeometry();
+        const starsCount = 500;
+        const starPosArray = new Float32Array(starsCount * 3);
+        for(let i = 0; i &lt; starsCount; i++) {
+            starPosArray[i*3] = (Math.random() - 0.5) * 100;     // X
+            starPosArray[i*3+1] = (Math.random() - 0.5) * 100;   // Y
+            starPosArray[i*3+2] = (Math.random() - 1.0) * 100;   // Z
+        }
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(starPosArray, 3));
+        const starsMat = new THREE.PointsMaterial({size: 0.15, color: 0x00ffff, transparent: true, opacity: 0.5});
+        const starMesh = new THREE.Points(starsGeo, starsMat);
+        scene.add(starMesh);
+
+        // Game Objects Collections
+        const targets = [];
+        const bullets = [];
+        const particles = [];
+
+        // Materials
+        const leftGunMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00aaaa });
+        const rightGunMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xaa00aa });
+        const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const targetMatLeft = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x005555, wireframe: true });
+        const targetMatRight = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0x550055, wireframe: true });
+
+        // Gun Models (Simple boxes)
+        function createGun(material) {
+            const group = new THREE.Group();
+            const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1), material);
+            barrel.position.z = -0.5;
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), material);
+            handle.position.y = -0.25;
+            group.add(barrel);
+            group.add(handle);
+            // Hide initially until hand is detected
+            group.visible = false;
+            scene.add(group);
+            return group;
+        }
+
+        const gunLeft = createGun(leftGunMat);
+        const gunRight = createGun(rightGunMat);
+
+        // --- AUDIO GENERATION ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playShootSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playExplosionSound() {
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * 0.2; // 0.2 seconds
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i &lt; bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const gain = audioCtx.createGain();
+            // Filter to make it sound deeper
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 1000;
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            noise.start();
+        }
+
+        function playErrorSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // --- GAMEPLAY MECHANICS ---
+
+        function spawnTarget() {
+            if (gameState !== 'playing') return;
+            
+            const isLeft = Math.random() &gt; 0.5;
+            const geo = new THREE.OctahedronGeometry(0.8, 0);
+            const mat = isLeft ? targetMatLeft : targetMatRight;
+            const target = new THREE.Mesh(geo, mat);
+            
+            // Spawn far away on Z, placed in left or right lane
+            target.position.set(isLeft ? -2.5 : 2.5, 1, -40);
+            
+            // Store lane info for logic. Slower base speed and variance.
+            target.userData = { isLeft: isLeft, speed: 0.08 + (Math.random() * 0.05) };
+            
+            scene.add(target);
+            targets.push(target);
+        }
+
+        function shoot(gunOrigin, isLeft) {
+            playShootSound();
+            const geo = new THREE.SphereGeometry(0.1, 8, 8);
+            const bullet = new THREE.Mesh(geo, bulletMat);
+            
+            // Position bullet at the tip of the gun
+            bullet.position.copy(gunOrigin.position);
+            // Move slightly forward
+            bullet.position.z -= 1.5;
+            
+            bullet.userData = { isLeft: isLeft, speed: 1.0 };
+            scene.add(bullet);
+            bullets.push(bullet);
+        }
+
+        function createExplosion(position, color) {
+            playExplosionSound();
+            const particleCount = 20;
+            const geo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(particleCount * 3);
+            const velArray = [];
+
+            for(let i=0; i &lt; particleCount; i++) {
+                posArray[i*3] = position.x;
+                posArray[i*3+1] = position.y;
+                posArray[i*3+2] = position.z;
+                velArray.push({
+                    x: (Math.random() - 0.5) * 0.5,
+                    y: (Math.random() - 0.5) * 0.5,
+                    z: (Math.random() - 0.5) * 0.5
+                });
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            const mat = new THREE.PointsMaterial({ size: 0.2, color: color, transparent: true });
+            const pSystem = new THREE.Points(geo, mat);
+            
+            scene.add(pSystem);
+            particles.push({ system: pSystem, velocities: velArray, life: 1.0 });
+        }
+
+        function updateGame() {
+            if (gameState !== 'playing') return;
+
+            // Move Grid to simulate speed (slower)
+            gridHelper.position.z += 0.08;
+            if (gridHelper.position.z &gt; 2) gridHelper.position.z = 0;
+
+            // Animate Starfield (slower)
+            const starPositions = starMesh.geometry.attributes.position.array;
+            for(let i = 2; i &lt; starsCount * 3; i += 3) {
+                starPositions[i] += 0.15; // Move stars towards camera
+                if(starPositions[i] &gt; 10) {
+                    starPositions[i] = -80; // Reset far back
+                }
+            }
+            starMesh.geometry.attributes.position.needsUpdate = true;
+
+            // Random Target Spawning (slower spawn rate to match slower speed)
+            if (Math.random() &lt; 0.01 + (score * 0.0003)) {
+                spawnTarget();
+            }
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i &gt;= 0; i--) {
+                const b = bullets[i];
+                b.position.z -= b.userData.speed;
+                // Remove if too far
+                if (b.position.z &lt; -50) {
+                    scene.remove(b);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Targets &amp; Check Collisions
+            for (let i = targets.length - 1; i &gt;= 0; i--) {
+                const t = targets[i];
+                t.position.z += t.userData.speed;
+                t.rotation.y += 0.05;
+                t.rotation.x += 0.02;
+
+                let hit = false;
+                
+                // Collision with bullets
+                for (let j = bullets.length - 1; j &gt;= 0; j--) {
+                    const b = bullets[j];
+                    const dist = t.position.distanceTo(b.position);
+                    
+                    // Simple bounding sphere collision
+                    if (dist &lt; 1.0) {
+                        // Explosion color matches target
+                        createExplosion(t.position, t.userData.isLeft ? 0x00ffff : 0xff00ff);
+                        
+                        // Remove bullet
+                        scene.remove(b);
+                        bullets.splice(j, 1);
+                        
+                        // Remove target
+                        scene.remove(t);
+                        targets.splice(i, 1);
+                        
+                        score += 10;
+                        scoreDisplay.innerText = score;
+                        hit = true;
+                        break;
+                    }
+                }
+
+                if (!hit) {
+                    // Missed target condition: passes behind camera
+                    if (t.position.z &gt; camera.position.z) {
+                        scene.remove(t);
+                        targets.splice(i, 1);
+                        misses++;
+                        missDisplay.innerText = misses;
+                        playErrorSound();
+                        
+                        if (misses &gt;= MAX_MISSES) {
+                            triggerGameOver();
+                        }
+                    }
+                }
+            }
+
+            // Update Particles
+            for (let i = particles.length - 1; i &gt;= 0; i--) {
+                const p = particles[i];
+                p.life -= 0.02;
+                
+                if (p.life &lt;= 0) {
+                    scene.remove(p.system);
+                    p.system.geometry.dispose();
+                    p.system.material.dispose();
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                const positions = p.system.geometry.attributes.position.array;
+                for (let j = 0; j &lt; p.velocities.length; j++) {
+                    positions[j*3] += p.velocities[j].x;
+                    positions[j*3+1] += p.velocities[j].y;
+                    positions[j*3+2] += p.velocities[j].z;
+                }
+                p.system.geometry.attributes.position.needsUpdate = true;
+                p.system.material.opacity = p.life;
+            }
+        }
+
+        function triggerGameOver() {
+            gameState = 'gameover';
+            uiHUD.classList.add('hidden');
+            uiGameOver.classList.remove('hidden');
+            finalScoreDisplay.innerText = score;
+            
+            // Hide guns
+            gunLeft.visible = false;
+            gunRight.visible = false;
+        }
+
+        function resetGame() {
+            // Clean up scene
+            targets.forEach(t =&gt; scene.remove(t));
+            bullets.forEach(b =&gt; scene.remove(b));
+            particles.forEach(p =&gt; { scene.remove(p.system); p.system.geometry.dispose(); p.system.material.dispose(); });
+            
+            targets.length = 0;
+            bullets.length = 0;
+            particles.length = 0;
+
+            score = 0;
+            misses = 0;
+            scoreDisplay.innerText = score;
+            missDisplay.innerText = misses;
+            
+            gameState = 'playing';
+            uiGameOver.classList.add('hidden');
+            uiHUD.classList.remove('hidden');
+        }
+
+        // --- HAND TRACKING (MEDIAPIPE) ---
+        
+        // Track hand states to prevent continuous firing
+        const handStates = {
+            left: { isPinching: false, lastActive: 0 },
+            right: { isPinching: false, lastActive: 0 }
+        };
+
+        function onResults(results) {
+            if (gameState !== 'playing') return;
+
+            // Reset gun visibility. Will turn true if detected.
+            gunLeft.visible = false;
+            gunRight.visible = false;
+
+            // Relaxed condition to ensure tracking doesn't drop if handedness label is briefly lost
+            if (results.multiHandLandmarks &amp;&amp; results.multiHandLandmarks.length &gt; 0) {
+                
+                // 1. Gather and sort hands by their visual screen position (left to right)
+                let detectedHands = [];
+                for (let i = 0; i &lt; results.multiHandLandmarks.length; i++) {
+                    detectedHands.push({
+                        landmarks: results.multiHandLandmarks[i],
+                        visualX: 1.0 - results.multiHandLandmarks[i][0].x // Mirror X
+                    });
+                }
+                detectedHands.sort((a, b) =&gt; a.visualX - b.visualX);
+
+                // 2. Process each detected hand
+                for (let i = 0; i &lt; detectedHands.length; i++) {
+                    const landmarks = detectedHands[i].landmarks;
+                    
+                    // Use palm center (base of middle finger) instead of wrist for a better anchor
+                    const palm = landmarks[9]; 
+                    const visualX = detectedHands[i].visualX;
+                    
+                    // Apply a vertical offset so you don't have to hold your hands up so high.
+                    // Subtracting from Y pushes the virtual gun higher on the screen relative to your physical hand.
+                    const yOffset = 0.2; 
+                    const visualY = palm.y - yOffset;
+                    
+                    // Assign guns reliably: Leftmost hand gets Left Gun, rightmost gets Right Gun.
+                    // If only one hand is visible, assign based on which side of the screen it's on.
+                    let isLeftGun;
+                    if (detectedHands.length === 2) {
+                        isLeftGun = (i === 0);
+                    } else {
+                        isLeftGun = visualX &lt; 0.5;
+                    }
+
+                    const gun = isLeftGun ? gunLeft : gunRight;
+                    const state = isLeftGun ? handStates.left : handStates.right;
+                    
+                    // 3. Perfect mathematical mapping to 3D Space
+                    const aspect = window.innerWidth / window.innerHeight;
+                    const distance = camera.position.z - 2; // Distance from camera (5) to gun Z (2) = 3
+                    const vFov = camera.fov * Math.PI / 180;
+                    const planeHeight = 2 * Math.tan(vFov / 2) * distance;
+                    const planeWidth = planeHeight * aspect;
+                    
+                    // Position guns exactly where your hands are on screen
+                    gun.position.set(
+                        (visualX - 0.5) * planeWidth,
+                        -(visualY - 0.5) * planeHeight,
+                        2
+                    );
+                    
+                    // Add slight rotation based on movement direction
+                    const ndcX = (visualX * 2) - 1;
+                    const ndcY = -(visualY * 2) + 1;
+                    gun.rotation.y = -ndcX * 0.3;
+                    gun.rotation.x = ndcY * 0.3;
+                    
+                    gun.visible = true;
+
+                    // 4. Improved Gesture Recognition: Pinch (using 2D distance for stability)
+                    const thumb = landmarks[4];
+                    const index = landmarks[8];
+                    const dist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+                    
+                    const pinchThreshold = 0.06; // Adjusted threshold for 2D distance
+
+                    if (dist &lt; pinchThreshold) {
+                        if (!state.isPinching) {
+                            shoot(gun, isLeftGun);
+                            state.isPinching = true;
+                        }
+                    } else {
+                        state.isPinching = false;
+                    }
+                }
+            }
+        }
+
+        const hands = new Hands({locateFile: (file) =&gt; {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+        
+        hands.onResults(onResults);
+
+        // --- CAMERA SETUP &amp; RENDER LOOP ---
+
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () =&gt; {
+                await hands.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
+        });
+
+        cameraUtils.start().then(() =&gt; {
+            // Camera started, models loaded
+            uiLoading.classList.add('hidden');
+            uiStart.classList.remove('hidden');
+            gameState = 'start';
+        }).catch(err =&gt; {
+            console.error(&quot;Camera error:&quot;, err);
+            uiLoading.innerHTML = `&lt;h1 class=&quot;text-2xl text-red-500&quot;&gt;Camera Access Denied or Unavailable.&lt;/h1&gt;`;
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            updateGame();
+            
+            // Only render 3D scene if not ended
+            if (gameState !== 'ended') {
+                renderer.render(scene, camera);
+            }
+        }
+        animate();
+
+        // Window Resize Handler
+        window.addEventListener('resize', () =&gt; {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- UI BUTTON LISTENERS ---
+
+        document.getElementById('btn-start').addEventListener('click', () =&gt; {
+            initAudio();
+            uiStart.classList.add('hidden');
+            uiHUD.classList.remove('hidden');
+            gameState = 'playing';
+        });
+
+        document.getElementById('btn-retry').addEventListener('click', () =&gt; {
+            resetGame();
+        });
+
+        document.getElementById('btn-end').addEventListener('click', () =&gt; {
+            gameState = 'ended';
+            uiGameOver.classList.add('hidden');
+            uiSessionEnded.classList.remove('hidden');
+            
+            // Clear canvas rendering
+            renderer.clear();
+            canvasElement.style.display = 'none';
+        });
+
+        document.getElementById('btn-restart-app').addEventListener('click', () =&gt; {
+            // Bring back to start screen
+            uiSessionEnded.classList.add('hidden');
+            canvasElement.style.display = 'block';
+            resetGame();
+            gameState = 'start';
+            uiStart.classList.remove('hidden');
+            uiHUD.classList.add('hidden');
+        });
+
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+</body>
+</html>
